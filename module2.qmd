@@ -1,49 +1,63 @@
 ---
 title: "Can an LLM read climate policy? An annotation lab"
 format: html
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 ## The question
 
-> **Do national climate laws and policies commit to concrete, measurable targets, and does this
-> differ between countries and regions?**
+> **Do national climate laws and policies commit to concrete, measurable
+> targets, and does this differ between countries and regions?**
 
-Answering this properly would mean reading thousands of documents in dozens of languages. Today we ask the question: **if we let a model do the reading,
-would we trust the answer?** At each step, notice how the answer to the big question could change
-depending on who or what does the coding, which model we use, how we define "target", and what the
+Answering this properly would mean reading thousands of documents in
+dozens of languages. Today we ask the question: **if we let a model do
+the reading, would we trust the answer?** At each step, notice how the
+answer to the big question could change depending on who or what does
+the coding, which model we use, how we define "target", and what the
 model assumes about countries.
 
-::: {.callout-important}
+::: callout-important
 ## This is a methods exercise, not a study
 
-We use a dataset that Climate Policy Radar built to train an ML classifier: a few thousand policy
-passages labelled by their experts. It is **not** a representative sample of national policies, so
-nothing we compute today tells us which countries have targets or how ambitious they are. What it
-does give us is expert labels to check ourselves and the models against.
+We use a dataset that Climate Policy Radar built to train an ML
+classifier: a few thousand policy passages labelled by their experts. It
+is **not** a representative sample of national policies, so nothing we
+compute today tells us which countries have targets or how ambitious
+they are. What it does give us is expert labels to check ourselves and
+the models against.
 :::
 
 ### About the data
 
-- **Source:** [Climate Policy Radar, national-climate-targets](https://huggingface.co/datasets/ClimatePolicyRadar/national-climate-targets)
-  (CC-BY 4.0; Juhasz et al. 2024). 2,610 passages from national climate laws, policies and UNFCCC
-  submissions in Climate Policy Radar's database.
-- **Labels:** each passage was coded by domain experts as containing a net-zero target, an emissions
-  reduction target, another kind of target, or none. A target is "an aim to achieve a specific
-  outcome, that is quantifiable and is given a deadline."
-- **How passages were chosen:** these passages were chosen to train a model, not to represent countries. Passages likely to
-  contain targets were deliberately included, and extra non-target passages were added.
-- **Translation:** many passages were machine-translated into English (Google Translate) before
-  the experts read them. The `translated` column tells you which.
-- **Our sample:** 100 passages, half with a target and half without, chosen by us so the comparison
-  is informative.
+- **Source:** [Climate Policy Radar,
+  national-climate-targets](https://huggingface.co/datasets/ClimatePolicyRadar/national-climate-targets)
+  (CC-BY 4.0; Juhasz et al. 2024). 2,610 passages from national climate
+  laws, policies and UNFCCC submissions in Climate Policy Radar's
+  database.
+- **Labels:** each passage was coded by domain experts as containing a
+  net-zero target, an emissions reduction target, another kind of
+  target, or none. A target is "an aim to achieve a specific outcome,
+  that is quantifiable and is given a deadline."
+- **How passages were chosen:** these passages were chosen to train a
+  model, not to represent countries. Passages likely to contain targets
+  were deliberately included, and extra non-target passages were added.
+- **Translation:** many passages were machine-translated into English
+  (Google Translate) before the experts read them. The `translated`
+  column tells you which.
+- **Our sample:** 100 passages, half with a target and half without,
+  chosen by us so the comparison is informative.
 
-Work through the sections at your own pace. Run each chunk in order with the green ▶ button, Sections 7 and 8 are optional.
+Work through the sections at your own pace. Run each chunk in order with
+the green ▶ button, Sections 7 and 8 are optional.
 
 ## 0. Setup
 
-This chunk loads the packages and data and defines `ask_model()`, the one function that talks
-to the language models. The models run inside Ollama on your own laptop; R sends them a prompt over
-a local connection (`localhost`) and gets text back. Nothing leaves your computer.
+This chunk loads the packages and data and defines `ask_model()`, the
+one function that talks to the language models. The models run inside
+Ollama on your own laptop; R sends them a prompt over a local connection
+(`localhost`) and gets text back. Nothing leaves your computer.
 
 ```{r setup}
 library(dplyr)      # data manipulation: filter, mutate, summarise, ...
@@ -80,11 +94,13 @@ ask_model(MODELS[1], 'Reply with the JSON {"ok": 1}')
 
 ## 1. The coding scheme
 
-This is the definition the experts used. The models get exactly this text.
+This is the definition the experts used. The models get exactly this
+text.
 
-`make_prompt()` wraps each passage in the same instructions, and `read_label()` pulls the 0 or 1
-out of the model's reply. Small models don't always follow instructions, so if the reply has no
-usable answer we record `NA` (missing) rather than guessing.
+`make_prompt()` wraps each passage in the same instructions, and
+`read_label()` pulls the 0 or 1 out of the model's reply. Small models
+don't always follow instructions, so if the reply has no usable answer
+we record `NA` (missing) rather than guessing.
 
 ```{r codebook}
 # The coding scheme, in words. This text is the only thing that tells the model what a "target" is.
@@ -110,7 +126,8 @@ read_label <- function(reply) {
 
 ## 2. Code 10 passages yourself
 
-Read each passage and decide: target (1) or no target (0)? Don't look anything up.
+Read each passage and decide: target (1) or no target (0)? Don't look
+anything up.
 
 ```{r show-passages}
 #| results: asis
@@ -121,13 +138,14 @@ for (i in 1:10) cat("**", i, ".** ", passages$text[i], "\n\n", sep = "")
 Type your answers, in order, then run the chunk.
 
 ```{r my-labels}
-my_labels <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)   # replace each NA with 1 or 0
+my_labels <- c(1, 0, 1, 1, 0, 1, 0, 1, 1, 0)   # replace each NA with 1 or 0
 ```
 
 ## 3. Run the two models
 
-This sends every passage to each model, one at a time, and collects the answers. It takes a few
-minutes. If you change the definition or prompt in section 1, rerun this chunk to see the effect.
+This sends every passage to each model, one at a time, and collects the
+answers. It takes a few minutes. If you change the definition or prompt
+in section 1, rerun this chunk to see the effect.
 
 ```{r run-models}
 # Ask each model about each passage. sapply() loops over the passages and collects one
@@ -144,8 +162,9 @@ results <- passages |> left_join(model_labels, by = "id")
 
 ## 4. How well do they agree?
 
-Percentage agreement flatters: if most passages had no target, saying "no" every time would score
-well. **Cohen's kappa** corrects for agreement you would get by chance (0 = chance, 1 = perfect).
+Percentage agreement flatters: if most passages had no target, saying
+"no" every time would score well. **Cohen's kappa** corrects for
+agreement you would get by chance (0 = chance, 1 = perfect).
 
 ```{r agreement}
 # Cohen's kappa for two coders who each gave 0/1 labels to the same passages.
@@ -191,15 +210,17 @@ round(kappa(results[[MODELS[1]]], results[[MODELS[2]]]), 2)
 table(experts = results$expert_target, model = results[[MODELS[1]]], useNA = "ifany")
 ```
 
-**Discuss:** Did you beat the models? Do the models make the same kind of mistake (missing targets,
-or seeing targets that aren't there)? **Back to the big question:** look at `targets_found`. If
-each model read every national policy, would they give the same answer about how many countries
-have concrete targets?
+**Discuss:** Did you beat the models? Do the models make the same kind
+of mistake (missing targets, or seeing targets that aren't there)?
+**Back to the big question:** look at `targets_found`. If each model
+read every national policy, would they give the same answer about how
+many countries have concrete targets?
 
 ## 5. Read the disagreements
 
-Here are the 10 passages you coded, with your label, the experts' label and both models' labels
-side by side. Passages where anyone disagrees with the experts are marked ⚠️.
+Here are the 10 passages you coded, with your label, the experts' label
+and both models' labels side by side. Passages where anyone disagrees
+with the experts are marked ⚠️.
 
 ```{r disagreements}
 #| results: asis
@@ -221,15 +242,15 @@ for (i in seq_len(nrow(first10))) {
 }
 ```
 
-For each ⚠️ passage, decide: **a coding error** (yours or a model's), **an unclear definition**, or
-**the experts got it wrong**? Keep a tally with your partner. How many "errors" are really the
-model's fault? Are the errors
-spread evenly, or concentrated in translated passages?
+For each ⚠️ passage, decide: **a coding error** (yours or a model's),
+**an unclear definition**, or **the experts got it wrong**? Keep a tally
+with your partner. How many "errors" are really the model's fault? Are
+the errors spread evenly, or concentrated in translated passages?
 
 ## 6. ✏️ Change the prompt
 
-Rewrite the definition below. Try loosening it (drop "quantifiable"?), tightening it, or adding an
-example. Then see how many labels change.
+Rewrite the definition below. Try loosening it (drop "quantifiable"?),
+tightening it, or adding an example. Then see how many labels change.
 
 ```{r new-prompt}
 # ✏️ Edit this definition. Everything else in the prompt stays the same.
@@ -246,15 +267,17 @@ cat("Kappa vs experts, original prompt:", round(kappa(results[[MODELS[1]]], resu
 cat("Kappa vs experts, your prompt:    ", round(kappa(new_labels, results$expert_target), 2), "\n")
 ```
 
-**Discuss:** Did you change the *wording* or the *thing being measured*? If a researcher tried ten
-prompts and reported the best one, what would that do to their findings? **Back to the big
-question:** a government that writes "we aim to decarbonise" has a target under your definition but
-not under the experts'. Whose definition should a study of national commitments use?
+**Discuss:** Did you change the *wording* or the *thing being measured*?
+If a researcher tried ten prompts and reported the best one, what would
+that do to their findings? **Back to the big question:** a government
+that writes "we aim to decarbonise" has a target under your definition
+but not under the experts'. Whose definition should a study of national
+commitments use?
 
 ## 7. Bonus: same text, different country
 
-One passage, identical wording; only the country name changes. Any difference comes from the model,
-not the text.
+One passage, identical wording; only the country name changes. Any
+difference comes from the model, not the text.
 
 ```{r country-swap}
 # Take the first passage the experts marked as containing a target.
@@ -275,9 +298,11 @@ swap_score <- function(text, country, model = MODELS[1]) {
 tibble(country = countries, likelihood_1_to_5 = sapply(countries, \(c) swap_score(passage, c)))
 ```
 
-One passage tells us little. Does the pattern hold across many passages? If someone has already run
-`country_swap_batch.R` (every suitable target passage, about 300, times six countries), this chunk
-loads those results. Otherwise it runs a small batch of 20 passages here (120 calls, a few minutes).
+One passage tells us little. Does the pattern hold across many passages?
+If someone has already run `country_swap_batch.R` (every suitable target
+passage, about 300, times six countries), this chunk loads those
+results. Otherwise it runs a small batch of 20 passages here (120 calls,
+a few minutes).
 
 ```{r country-swap-scale}
 # Load the batch results if they exist; otherwise score 20 random passages x 6 countries here.
@@ -322,22 +347,26 @@ ggplot(by_country, aes(x = shift, y = reorder(country, shift))) +
   theme_minimal(base_size = 12)
 ```
 
-**Discuss:** There is no right answer to "how likely is this to be achieved", so this measures the
-model's assumptions, not the countries. **Back to the big question:** if a study used an LLM to
-judge how *credible* or *ambitious* each country's targets are, could regional differences in its
-results come from the model rather than the policies? Would a small validation sample catch that?
+**Discuss:** There is no right answer to "how likely is this to be
+achieved", so this measures the model's assumptions, not the countries.
+**Back to the big question:** if a study used an LLM to judge how
+*credible* or *ambitious* each country's targets are, could regional
+differences in its results come from the model rather than the policies?
+Would a small validation sample catch that?
 
 ## 8. If you have time: ask your own question
 
-So far the experts wrote the codebook. Now you do. Pick a yes/no question about climate policy
-text, write a definition, and test a model on 30 new passages from the Climate Policy Radar data.
-There are **no expert labels** for your question: your own hand-coding is the benchmark.
+So far the experts wrote the codebook. Now you do. Pick a yes/no
+question about climate policy text, write a definition, and test a model
+on 30 new passages from the Climate Policy Radar data. There are **no
+expert labels** for your question: your own hand-coding is the
+benchmark.
 
-Some ideas:
-- Does the passage mention **adaptation**, not only emissions cuts?
-- Does it mention **Indigenous peoples or local communities**?
-- Does it set a goal for **nature** (the worked example below)?
-- Does it place responsibility on a **specific actor** (a ministry, industry, cities)?
+Some ideas: - Does the passage mention **adaptation**, not only
+emissions cuts? - Does it mention **Indigenous peoples or local
+communities**? - Does it set a goal for **nature** (the worked example
+below)? - Does it place responsibility on a **specific actor** (a
+ministry, industry, cities)?
 
 ```{r own-question-setup}
 # 30 passages you haven't seen yet. These have no expert labels.
@@ -387,7 +416,8 @@ cat("Model vs you, first 10 passages: kappa =",
 cat("Model said yes to", sum(more$model_answer, na.rm = TRUE), "of", nrow(more), "passages\n\n")
 ```
 
-Read what the model said yes to on the 20 passages you didn't code. Do you agree?
+Read what the model said yes to on the 20 passages you didn't code. Do
+you agree?
 
 ```{r own-question-check}
 #| results: asis
@@ -396,50 +426,59 @@ yes <- more |> slice(11:30) |> filter(model_answer == 1)
 for (i in seq_len(nrow(yes))) cat("**", yes$country[i], "** ", yes$text[i], "\n\n", sep = "")
 ```
 
-**Discuss:** How hard was it to write a definition you could apply consistently? Would a
-classmate code your 10 passages the same way? Is a 10-passage benchmark enough, and where does
-your question sit on the risk ladder?
+**Discuss:** How hard was it to write a definition you could apply
+consistently? Would a classmate code your 10 passages the same way? Is a
+10-passage benchmark enough, and where does your question sit on the
+risk ladder?
 
 ## 9. From this sample to a whole corpus
 
-Suppose a model performed well on everything above. Climate Policy Radar also publishes the
-[full text of its database](https://huggingface.co/datasets/ClimatePolicyRadar/all-document-text-data):
-tens of millions of text passages from national climate laws, policies and UNFCCC submissions.
+Suppose a model performed well on everything above. Climate Policy Radar
+also publishes the [full text of its
+database](https://huggingface.co/datasets/ClimatePolicyRadar/all-document-text-data):
+tens of millions of text passages from national climate laws, policies
+and UNFCCC submissions.
 
-If you want to look at it, the bonus notebook `bonus_cloud_native.qmd` queries the whole corpus in
-place, without downloading it, and draws a random sample of passages the experts never labelled.
+If you want to look at it, the bonus notebook `bonus_cloud_native.qmd`
+queries the whole corpus in place, without downloading it, and draws a
+random sample of passages the experts never labelled.
 
 Write short answers with a partner, directly in this notebook:
 
-1. **Your question.** What would you ask of the whole corpus? It can be the big question from the
-   top of this notebook, or something else (for example: have targets become more specific over
-   time? how often do climate laws set goals for nature? which countries' NDCs are conditional on
-   finance?).
+1.  **Your question.** What would you ask of the whole corpus? It can be
+    the big question from the top of this notebook, or something else
+    (for example: have targets become more specific over time? how often
+    do climate laws set goals for nature? which countries' NDCs are
+    conditional on finance?).
 
-   *Your answer:*
+    *Your answer:*
 
-2. **What the model would need to do.** Which labels or extracted values would it produce, and
-   how would you turn them into an answer (counts by country, trends over time, ...)?
+2.  **What the model would need to do.** Which labels or extracted
+    values would it produce, and how would you turn them into an answer
+    (counts by country, trends over time, ...)?
 
-   *Your answer:*
+    *Your answer:*
 
-3. **What you would check first.** Today you validated on 100 passages chosen for convenience.
-   Before trusting results across the corpus, what else would you need? Think about which
-   countries and languages the corpus covers, whether the metadata (country, date) is right,
-   whether accuracy holds for translated text and for each region, and who should help write the
-   definition.
+3.  **What you would check first.** Today you validated on 100 passages
+    chosen for convenience. Before trusting results across the corpus,
+    what else would you need? Think about which countries and languages
+    the corpus covers, whether the metadata (country, date) is right,
+    whether accuracy holds for translated text and for each region, and
+    who should help write the definition.
 
-   *Your answer:*
+    *Your answer:*
 
-4. **Risk.** Where does your question sit on Lan et al.'s risk ladder (Table 2), and what would
-   change if a government or funder used your results?
+4.  **Risk.** Where does your question sit on Lan et al.'s risk ladder
+    (Table 2), and what would change if a government or funder used your
+    results?
 
-   *Your answer:*
+    *Your answer:*
 
 ## Before you leave
 
-1. Where would today's task sit on Lan et al.'s risk ladder (Table 2)? What checking would it need
-   before the labels could be published?
-2. The expert labels came from one organisation, and many passages were machine-translated before
-   the experts read them. What does that mean for "ground truth"?
-3. When would *not* using an LLM be the more rigorous choice?
+1.  Where would today's task sit on Lan et al.'s risk ladder (Table 2)?
+    What checking would it need before the labels could be published?
+2.  The expert labels came from one organisation, and many passages were
+    machine-translated before the experts read them. What does that mean
+    for "ground truth"?
+3.  When would *not* using an LLM be the more rigorous choice?
